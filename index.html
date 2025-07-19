@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SPC Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; padding: 1em; }
+        .container { max-width: 600px; margin: auto; padding: 2em; border: 1px solid #ccc; border-radius: 8px; }
+        button { font-size: 1.1em; padding: 0.8em; width: 100%; border-radius: 5px; border: none; background-color: #007bff; color: white; cursor: pointer; margin-top: 1em;}
+        button:disabled { background-color: #cccccc; }
+        #log { margin-top: 1em; padding: 1em; background-color: #f0f0f0; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Secure Payment Confirmation (SPC) Test</h1>
+    <p>This page checks if SPC is available and allows you to initiate a test authentication.</p>
+    <button id="spcButton" disabled>Checking for SPC support...</button>
+    <h3>Log:</h3>
+    <pre id="log"></pre>
+</div>
+<script>
+    const logElement = document.getElementById('log');
+    const spcButton = document.getElementById('spcButton');
+
+    function log(message) {
+        console.log(message);
+        logElement.textContent += message + '\n';
+    }
+
+    // IMPORTANT: Change 'your-username' to your actual GitHub username below!
+    const relyingPartyId = 'your-username.github.io';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (relyingPartyId.includes('your-username')) {
+            log('❌ ERROR: Please edit the HTML file and set the `relyingPartyId` to your GitHub username.');
+            return;
+        }
+
+        if (!window.PaymentRequest) {
+            log('❌ Error: PaymentRequest API is not supported in this WebView.');
+            return;
+        }
+        log('✅ PaymentRequest API is supported.');
+
+        const paymentMethodData = [{
+            supportedMethods: "secure-payment-confirmation",
+            data: {
+                action: "authenticate",
+                rpId: relyingPartyId,
+                credentialIds: [ Uint8Array.from(atob('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='), c => c.charCodeAt(0)) ],
+                challenge: new TextEncoder().encode("server-challenge-" + Date.now()),
+                instrument: { displayName: "Visa **** 4242", icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" },
+                payeeName: "Your Test Store",
+                timeout: 60000,
+            }
+        }];
+
+        try {
+            const request = new PaymentRequest(paymentMethodData, {});
+            const canMakePayment = await request.canMakePayment();
+            if (canMakePayment) {
+                log('✅ Success: SPC is available on this device!');
+                spcButton.textContent = 'Authenticate with SPC';
+                spcButton.disabled = false;
+                spcButton.onclick = () => onSpcButtonClick(request);
+            } else {
+                log('⚠️ Warning: SPC is not available or not enrolled.');
+                spcButton.textContent = 'SPC Not Available/Enrolled';
+            }
+        } catch (err) {
+            log(`❌ Error during setup: ${err.message}`);
+        }
+    });
+
+    async function onSpcButtonClick(paymentRequest) {
+        log('\n➡️ Initiating SPC authentication...');
+        try {
+            const paymentResponse = await paymentRequest.show();
+            log('✅ SPC ceremony succeeded!');
+            // You would normally send paymentResponse.details to your server here
+            paymentResponse.complete('success');
+        } catch (err) {
+            log(`❌ SPC ceremony failed: ${err.message}`);
+        }
+    }
+</script>
+</body>
+</html>
