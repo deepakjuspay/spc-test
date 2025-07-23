@@ -93,4 +93,77 @@
         // --- 2. Secure Payment Confirmation ---
         document.getElementById('pay-button').addEventListener('click', async () => {
             statusDiv.textContent = 'Initiating payment...';
-            statusDiv.className = 'mt-6 te
+            statusDiv.className = 'mt-6 text-center text-sm font-medium text-gray-600';
+
+
+            if (!window.PaymentRequest) {
+                statusDiv.textContent = 'Error: PaymentRequest API not supported.';
+                statusDiv.classList.add('text-red-500');
+                return;
+            }
+
+            // Define Payment Method Data
+            const paymentMethodData = [{
+                supportedMethods: "secure-payment-confirmation",
+                data: {
+                    challenge: new TextEncoder().encode('dummy-payment-challenge-12345'),
+                    // If a passkey was just created, we can suggest it.
+                    // In a real app, the server would provide a list of known credentials for the user.
+                    allowCredentials: createdCredentialId ? [{
+                        type: 'public-key',
+                        id: createdCredentialId
+                    }] : [],
+                    rpId: "your-app-id.firebaseapp.com", // IMPORTANT: Must match your domain
+                    timeout: 60000,
+                    payeeName: "Demo Merchant",
+                    payeeOrigin: "https://your-app-id.firebaseapp.com",
+                    instrument: {
+                        displayName: "Visa **** 1234",
+                        icon: "https://placehold.co/128x128/blue/white?text=Card"
+                    }
+                }
+            }];
+
+            // Define Payment Details
+            const paymentDetails = {
+                total: {
+                    label: "Total",
+                    amount: {
+                        currency: "USD",
+                        value: "1.00"
+                    }
+                }
+            };
+
+            try {
+                const request = new PaymentRequest(paymentMethodData, paymentDetails);
+                const canMakePayment = await request.canMakePayment();
+                if (!canMakePayment) {
+                    statusDiv.textContent = 'SPC not available or no passkey registered.';
+                    statusDiv.classList.add('text-red-500');
+                    return;
+                }
+
+                statusDiv.textContent = 'Awaiting user authentication...';
+                const response = await request.show();
+
+                statusDiv.textContent = 'Processing...';
+                console.log("Payment Response:", response.details);
+
+                // Simulate server verification
+                await new Promise(resolve => setTimeout(resolve, 1000)); 
+                
+                response.complete('success');
+                statusDiv.textContent = 'Payment successful!';
+                statusDiv.classList.remove('text-red-500');
+                statusDiv.classList.add('text-green-500');
+
+            } catch (error) {
+                console.error("Payment failed:", error);
+                statusDiv.textContent = `Payment failed: ${error.message}`;
+                statusDiv.classList.add('text-red-500');
+            }
+        });
+    </script>
+</body>
+</html>
